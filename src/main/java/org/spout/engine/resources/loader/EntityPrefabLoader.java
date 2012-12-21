@@ -32,10 +32,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.bulletphysics.collision.shapes.CollisionShape;
+
+import org.spout.api.Spout;
 import org.spout.api.component.type.EntityComponent;
 import org.spout.api.plugin.CommonClassLoader;
 import org.spout.api.resource.BasicResourceLoader;
 import org.spout.api.util.typechecker.TypeChecker;
+
+import org.spout.engine.entity.component.SpoutPhysicsComponent;
 import org.spout.engine.resources.ClientEntityPrefab;
 import org.yaml.snakeyaml.Yaml;
 
@@ -43,7 +48,7 @@ public class EntityPrefabLoader extends BasicResourceLoader<ClientEntityPrefab> 
 
 	private static final TypeChecker<Map<? extends String, ?>> checkerMapStringObject = TypeChecker.tMap(String.class, Object.class);
 	private static final TypeChecker<List<? extends String>> checkerListString =  TypeChecker.tList(String.class);
-	
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public ClientEntityPrefab getResource(InputStream stream) {
@@ -78,12 +83,56 @@ public class EntityPrefabLoader extends BasicResourceLoader<ClientEntityPrefab> 
 				throw new IllegalStateException("This is not an entity component.");
 			}
 		}
-		
+
 		final Map<? extends String, ?> datasOld = checkerMapStringObject.check(resourceProperties.get("Data"));
 		final Map<String, Object> datas = new HashMap<String, Object>();
+
+		final Map<? extends String, ?> collisionOld = checkerMapStringObject.check(resourceProperties.get("Collision"));
+		final Map<String, Float> collisions = new HashMap<String, Float>();
+
+		//Read in shape class
+		Class<?> shapeClass;
+		Object shape = datas.get("Shape").toString();
+		if (shape != null) {
+			//Parse the shape data
+			try {
+				shapeClass = CommonClassLoader.findPluginClass(shape.toString());
+			} catch (ClassNotFoundException e) {
+				try {
+					shapeClass = Class.forName(shape.toString());
+				} catch (ClassNotFoundException e1) {
+					throw new IllegalStateException("Could not find: " + shape.toString() + " for EntityPrefab: " + name + " within the classpath!");
+				}
+			}
+
+			if (!CollisionShape.class.isAssignableFrom(shapeClass)) {
+				throw new IllegalStateException("Specified: " + shapeClass.getName() + " for a CollisionShape but this class doesn't extend that!");
+			}
+
+			//Valid shape found, lets add the PhysicsComponent and replace the class
+			components.add(SpoutPhysicsComponent.class);
+			datas.put("Shape", shapeClass);
+
+			//Read in the physics data
+			for (String key : collisionOld.keySet()) {
+				final Object value = collisionOld.get(key);
+				try {
+					if (key.equals("Bounds")) {
+						String[] split = value.toString().split(",");
+						for (int i = 0; i < split.length; i++) {
+							collisions.put(key + String.valueOf(i), Float.valueOf(split[i]));
+						}
+						continue;
+					}
+					collisions.put(key, Float.valueOf(value.toString()));
+				} catch (NumberFormatException e) {
+					throw new IllegalStateException("The value: " + value.toString() + " for key: " + key + " in EntityPrefab: " + name.toString() + " is not a float!");
+				}
+			}
+		}
 		datas.putAll(datasOld);
 		
-		return new ClientEntityPrefab((String)name, components, datas);
+		return new ClientEntityPrefab((String)name, components, datas, collisions);
 	}
 	
 	@Override
