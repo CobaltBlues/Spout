@@ -29,10 +29,13 @@ package org.spout.engine.resources;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import com.bulletphysics.collision.shapes.CollisionShape;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 import org.spout.api.component.implementation.ModelComponent;
 import org.spout.api.component.implementation.PhysicsComponent;
@@ -91,63 +94,89 @@ public class ClientEntityPrefab extends Resource implements EntityPrefab {
 
 			mc.setModel((String) datas.get("Model"));
 		}
-		Class collisionShape = (Class) datas.get("Shape");
-		if (collisionShape != null && !collisionDatas.isEmpty()) {
-			SpoutPhysicsComponent physics = (SpoutPhysicsComponent) entity.get(PhysicsComponent.class);
-			if (physics == null) {
-				entity.add(PhysicsComponent.class);
-			}
-			ArrayList<Float> bounds = new ArrayList<Float>();
-			HashMap<String, Float> dampingValues = new HashMap<String, Float>();
 
-			//Loop through the collision data section.
+
+		Class collisionClazz = (Class) datas.get("Shape");
+		CollisionShape shape;
+		//Start reading in collision data
+		if (collisionClazz != null && collisionDatas != null) {
+			//Add/Get physics component
+			SpoutPhysicsComponent physics = (SpoutPhysicsComponent) entity.add(PhysicsComponent.class);
+
+			//Form a map of Bounds#, value
+			HashMap<String, Float> boundsMap = new HashMap<String, Float>();
 			for (Map.Entry entry : collisionDatas.entrySet()) {
-				String name = entry.getKey().toString();
-				Float value = (Float) entry.getValue();
-				if (name.contains("Bounds")) {
-					bounds.add(value);
+				if (entry.getKey().toString().contains("Bounds")) {
+					boundsMap.put(entry.getKey().toString(), (Float) entry.getValue());
+				}
+			}
+
+			//Sort the values into a linked list
+			LinkedList<Float> bounds = new LinkedList<Float>();
+			for (int i = 0; i < boundsMap.size(); i++) {
+				bounds.add(boundsMap.get("Bounds" + (i + 1))); //Bounds start at 1
+			}
+
+			//Decipher shape constructors
+			Constructor[] constructors = collisionClazz.getConstructors();
+			Constructor found = null;
+			for (Constructor constructor : constructors) {
+				Class[] types = constructor.getParameterTypes();
+				boolean isValid = true;
+				if (types.length != bounds.size()) {
 					continue;
 				}
-				if (physics.getCollisionShape() == null) {
-					//At this point, bounds has populated for the shape. We cannot just add in all the physics characteristics as some need a collision shape.
-					//Instead we need to add the shape now.
-					CollisionShape shape = null;
-					ArrayList<Float> args = new ArrayList<Float>();
-					int paramCount = 0;
-					//Loop through the shape class' constructors, attempt to construct one with the bounds specified
-					Constructor[] constructors = collisionShape.getConstructors();
-					for (Constructor constructor: constructors) {
-						for (Class<?> parameter : constructor.getParameterTypes()) {
-							if (!parameter.getClass().equals(Float.class)) {
-								throw new IllegalStateException(collisionShape.getName() + " isn't a valid shape for the bounds provided. Only floats are allowed.");
-							}
-							paramCount++;
-						}
-						//We have a valid constructor, lets initialize it.
-						try {
-							//Add the bounds values
-							for (int i = 0; i < paramCount; i++) {
-								args.add(collisionDatas.get("Bounds" + i));
-							}
-							shape = (CollisionShape) constructor.newInstance(args);
-							break;
-						} catch (Exception e) {
-							throw new IllegalStateException("Could not construct a new instance of the CollisionShape: " + collisionShape.getName() + " for EntityPrefab: " + getName());
-						}
+				for (Class clazz : types) {
+					if (!clazz.equals(Float.class)) {
+						isValid = false;
 					}
-					physics.setCollisionShape(shape);
 				}
-				if (name.equalsIgnoreCase("Mass")) {
-					physics.setMass(value);
-				} else if (name.equalsIgnoreCase("AngularDamping")) {
-					dampingValues.put("AngularDamping", value);
-				} else if (name.equalsIgnoreCase("LinearDamping")) {
-					dampingValues.put("LinearDamping", value);
-				} else if (name.equalsIgnoreCase("Restitution")) {
-					physics.setRestitution(value);
-				} else if (name.equalsIgnoreCase("Friction")) {
-					physics.setFriction(value);
+				if (isValid) {
+					found = constructor;
+					break;
 				}
+			}
+
+			if (found == null) {
+				throw new IllegalStateException("Bounds: " + bounds.toString() + " for class: " + collisionClazz.getName() + " in EntityPrefab: " + getName() + " is invalid!");
+			}
+			try {
+				shape = (CollisionShape) found.newInstance(bounds.toArray(new Float[bounds.size()]));
+			} catch (Exception e) {
+				throw new IllegalStateException("Could not create: " + collisionClazz.getName() + " from Bounds: " + bounds.toString() + " in EntityPrefab: " + getName());
+			}
+
+			/*
+			 * ORDER MATTERS
+			 */
+
+			//Handle Mass
+			if (collisionDatas.containsKey("Mass")) {
+				physics.setMass(collisionDatas.get("Mass"));
+			}
+
+			//Add the shape
+			physics.setCollisionShape(shape);
+
+			//Handle Damping
+			Float angDamping = collisionDatas.get("AngularDamping");
+			Float linDamping = collisionDatas.get("LinearDamping");
+			if (angDamping != null && linDamping != null) {
+				physics.setDamping(linDamping, angDamping);
+			} else if (angDamping == null && linDamping != null) {
+				physics.setDamping(linDamping, 0f);
+			} else if (angDamping != null && linDamping == null) {
+				physics.setDamping(0f, angDamping);
+			}
+
+			//Handle Friction
+			if (collisionDatas.containsKey("Friction")) {
+				physics.setFriction(collisionDatas.get("Friction"));
+			}
+
+			//Handle Restitution
+			if (collisionDatas.containsKey("Restitution")) {
+				physics.setMass(collisionDatas.get("Restitution"));
 			}
 		}
 		return entity;
