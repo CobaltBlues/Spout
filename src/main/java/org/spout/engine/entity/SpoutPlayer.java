@@ -38,6 +38,7 @@ import org.spout.api.chat.style.ChatStyle;
 import org.spout.api.command.Command;
 import org.spout.api.command.RootCommand;
 import org.spout.api.component.Component;
+import org.spout.api.component.impl.PlayerPhysicsComponent;
 import org.spout.api.data.ValueHolder;
 import org.spout.api.entity.Player;
 import org.spout.api.entity.state.PlayerInputState;
@@ -59,6 +60,7 @@ import org.spout.api.util.thread.SnapshotRead;
 import org.spout.api.util.thread.Threadsafe;
 import org.spout.engine.SpoutConfiguration;
 import org.spout.engine.SpoutEngine;
+import org.spout.engine.entity.component.SpoutPlayerPhysicsComponent;
 import org.spout.engine.filesystem.versioned.PlayerFiles;
 import org.spout.engine.protocol.SpoutSession;
 import org.spout.engine.world.SpoutWorld;
@@ -73,6 +75,7 @@ public class SpoutPlayer extends SpoutEntity implements Player {
 	private final int hashcode;
 	private PlayerInputState inputState = PlayerInputState.DEFAULT_STATE;
 	private Locale preferredLocale = Locale.getByCode(SpoutConfiguration.DEFAULT_LANGUAGE.getString());
+	private final SpoutPlayerPhysicsComponent physics;
 
 	public SpoutPlayer(String name) {
 		this(name, null, SpoutConfiguration.VIEW_DISTANCE.getInt() * Chunk.BLOCKS.SIZE);
@@ -88,6 +91,7 @@ public class SpoutPlayer extends SpoutEntity implements Player {
 		displayName.set(name);
 		hashcode = name.hashCode();
 		this.setObserver(true);
+		physics = this.add(SpoutPlayerPhysicsComponent.class);
 	}
 
 	@Override
@@ -334,6 +338,11 @@ public class SpoutPlayer extends SpoutEntity implements Player {
 	}
 
 	@Override
+	public PlayerPhysicsComponent getPhysics() {
+		return physics;
+	}
+
+	@Override
 	public Locale getPreferredLocale() {
 		return preferredLocale;
 	}
@@ -341,18 +350,6 @@ public class SpoutPlayer extends SpoutEntity implements Player {
 	@Override
 	public boolean save() {
 		return false;
-	}
-
-	@Override
-	public void teleport(Point loc) {
-		getTransform().setPosition(loc);
-		getNetworkSynchronizer().setPositionDirty();
-	}
-
-	@Override
-	public void teleport(Transform transform) {
-		getTransform().setTransform(transform);
-		getNetworkSynchronizer().setPositionDirty();
 	}
 
 	@Override
