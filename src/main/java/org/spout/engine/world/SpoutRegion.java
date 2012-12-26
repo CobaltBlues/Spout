@@ -55,6 +55,7 @@ import javax.vecmath.Vector3f;
 import org.spout.api.Spout;
 import org.spout.api.component.Component;
 import org.spout.api.component.impl.PhysicsComponent;
+import org.spout.api.component.impl.PlayerPhysicsComponent;
 import org.spout.api.component.type.BlockComponent;
 import org.spout.api.component.type.EntityComponent;
 import org.spout.api.datatable.ManagedHashMap;
@@ -103,6 +104,7 @@ import org.spout.engine.entity.EntityManager;
 import org.spout.engine.entity.SpoutEntity;
 import org.spout.engine.entity.SpoutPlayer;
 import org.spout.engine.entity.component.SpoutPhysicsComponent;
+import org.spout.engine.entity.component.SpoutPlayerPhysicsComponent;
 import org.spout.engine.filesystem.ChunkDataForRegion;
 import org.spout.engine.filesystem.versioned.ChunkFiles;
 import org.spout.engine.mesh.ChunkMesh;
@@ -119,6 +121,7 @@ import org.spout.engine.world.dynamic.DynamicBlockUpdate;
 import org.spout.engine.world.dynamic.DynamicBlockUpdateTree;
 
 import com.bulletphysics.collision.broadphase.BroadphaseInterface;
+import com.bulletphysics.collision.broadphase.CollisionFilterGroups;
 import com.bulletphysics.collision.broadphase.DbvtBroadphase;
 import com.bulletphysics.collision.broadphase.Dispatcher;
 import com.bulletphysics.collision.dispatch.CollisionConfiguration;
@@ -306,6 +309,13 @@ public class SpoutRegion extends Region {
 	}
 
 	public void addPhysics(Entity e) {
+		if (e instanceof Player) {
+			PlayerPhysicsComponent physics = e.get(PlayerPhysicsComponent.class);
+			if (physics != null) {
+				addPhysics(physics);
+			}
+			return;
+		}
 		PhysicsComponent physics = e.get(PhysicsComponent.class);
 		if (physics != null) {
 			addPhysics(physics);
@@ -313,6 +323,13 @@ public class SpoutRegion extends Region {
 	}
 
 	public void removePhysics(Entity e) {
+		if (e instanceof Player) {
+			PlayerPhysicsComponent physics = e.get(PlayerPhysicsComponent.class);
+			if (physics != null) {
+				removePhysics(physics);
+			}
+			return;
+		}
 		PhysicsComponent physics = e.get(PhysicsComponent.class);
 		if (physics != null) {
 			removePhysics(physics);
@@ -330,6 +347,24 @@ public class SpoutRegion extends Region {
 			} else {
 				simulation.addCollisionObject(object);
 			}
+		}
+	}
+
+	public void addPhysics(PlayerPhysicsComponent physics) {
+		SpoutPlayerPhysicsComponent playerPhysics = (SpoutPlayerPhysicsComponent) physics;
+		CollisionObject object = playerPhysics.getCollisionObject();
+		synchronized(simulation) {
+			simulation.addCollisionObject(object, CollisionFilterGroups.CHARACTER_FILTER, (short)(CollisionFilterGroups.STATIC_FILTER | CollisionFilterGroups.DEFAULT_FILTER));
+			simulation.addAction(playerPhysics.getController());
+		}
+	}
+
+	public void removePhysics(PlayerPhysicsComponent physics) {
+		SpoutPlayerPhysicsComponent playerPhysics = (SpoutPlayerPhysicsComponent) physics;
+		CollisionObject object = playerPhysics.getCollisionObject();
+		synchronized(simulation) {
+			simulation.removeCollisionObject(object);
+			simulation.removeAction(playerPhysics.getController());
 		}
 	}
 
