@@ -100,7 +100,7 @@ public class SpoutClient extends SpoutEngine implements Client {
 	private SpoutPlayer activePlayer;
 	private final AtomicReference<SpoutClientWorld> activeWorld = new AtomicReference<SpoutClientWorld>();
 	private final AtomicReference<PortBinding> potentialBinding = new AtomicReference<PortBinding>();
-		// Handle stopping
+	// Handle stopping
 	private volatile boolean rendering = true;
 	private String stopMessage = null;
 	private final ClientBootstrap bootstrap = new ClientBootstrap();

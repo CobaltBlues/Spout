@@ -302,6 +302,8 @@ public class SpoutRegion extends Region {
 		//TODO Recheck Terasology code for more correct flags
 		regionBody.setCollisionFlags(CollisionFlags.STATIC_OBJECT | regionBody.getCollisionFlags());
 		simulation.addRigidBody(regionBody);
+
+		//Show a debug drawer
 	}
 
 	public DiscreteDynamicsWorld getSimulation() {

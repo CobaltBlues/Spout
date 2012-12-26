@@ -57,6 +57,11 @@ public class SpoutPlayerPhysicsComponent extends PlayerPhysicsComponent {
 	}
 
 	@Override
+	public void move(Vector3 movement) {
+		controller.setWalkDirection(MathHelper.toVector3f(movement));
+	}
+
+	@Override
 	public float getRestitution() {
 		synchronized (((SpoutRegion) getOwner().getRegion()).getSimulation()) {
 			return object.getRestitution();

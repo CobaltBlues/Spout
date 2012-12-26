@@ -103,7 +103,6 @@ public class SpoutRenderer {
 	
 	public void initRenderer() {
 		createWindow();
-
 		
 		SpoutClient client = (SpoutClient)Spout.getEngine();
 		
@@ -297,8 +296,6 @@ public class SpoutRenderer {
 		}
 	}
 
-
-	
 	public void toggleWireframe() {
 		if (wireframe) {
 			GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
